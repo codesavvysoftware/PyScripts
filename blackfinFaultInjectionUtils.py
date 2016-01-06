@@ -17,7 +17,7 @@
 #///     http://project.ra.rockwell.com/PWA/ICE2 Platform Development/
 #///     Project Documents/Forms/AllItems.aspx?RootFolder=%2fPWA%2f
 #///     ICE2 Platform Development%2fProject Documents%2fTeam Information%2f
-#///     Tools and Infrastructure Team%2fClearCase&FolderCTID=&View=
+#///     Tools and Infrastructure Team%2fclearcase&FolderCTID=&View=
 #///     {8D8D137C-F7CA-407F-8180-26CD22515E97}
 #/// 
 #/// @if REVISION_HISTORY_INCLUDED
@@ -57,7 +57,7 @@
 #/////////////////////////////////////////////////////////////////////////////
 
 #-----------------------------------------------------------------------------
-#was import ClearCase
+#was import clearcase
 import clearcase  # For isCheckedOut, checkout, uncheckout
 import os         # For path
 import datetime   # For date
@@ -90,6 +90,14 @@ BUILD_RESULTS_FOLDER_NAME                                 = "Build_Results"
 
 BUILD_FILES_FOLDER_NAME                                   = "\\ReleaseDB\\"
 
+MAX_NUMBER_OF_SRC_FOLDERS_ALLOWED_TO_BE_MODIFIED          = 100
+
+MAX_NUMBER_OF_SRC_FILES_ALLOWED_TO_BE_MODIFIED            = 100
+
+MAX_NUMBER_OF_FILES_AND_FOLDERS_TO_DELETE_BEFORE_BUILDING = 100
+
+MAX_NUMBER_OF_BUILDS_PER_SCRIPT_PER_PRODUCT_PER_DAY       = 50
+
 # FaultInjectionUtils class
 # This class is used to process the fault injection script file.
 class FaultInjectionUtils:
@@ -109,7 +117,9 @@ class FaultInjectionUtils:
     # Perform all necessary initialization.
     def Init(self, TestName):
         # Get the basename of the TestName
-        TestName = os.path.basename(TestName)
+        self.TestName = os.path.basename(TestName)
+
+        JustFileName = os.path.splitext(self.TestName)[0]
 
         # If the test results folder does not already exist, create it.
         if not os.path.exists(BUILD_RESULTS_FOLDER_NAME):
@@ -118,7 +128,10 @@ class FaultInjectionUtils:
         # Determine the build results sub folder name.
         cwdStr = os.getcwd()
         today = datetime.date.today()
-        self.BuildResultsSubFolderName = cwdStr + "\\" + BUILD_RESULTS_FOLDER_NAME + "\\" + str(today) + "_" + BLACKFIN_PRODUCT_NAME + "_" + TestName
+        
+        BuildResultsSubFolderName = cwdStr + "\\" + BUILD_RESULTS_FOLDER_NAME + "\\" + str(today) + "_" + BLACKFIN_PRODUCT_NAME + "_" + JustFileName
+
+        self.BuildResultsSubFolderName = BuildResultsSubFolderName.replace ("-", "_")
 
         # If the build results sub folder already exists, rename it with a ".old" or ".old.n" extension.
         if os.path.exists(self.BuildResultsSubFolderName):
@@ -142,14 +155,14 @@ class FaultInjectionUtils:
         os.makedirs(self.BuildResultsSubFolderName)
 
         # Determine the log file name and open it.
-        LogFilePathAndName = self.BuildResultsSubFolderName + "\\" + TestName + ".log"
+        LogFilePathAndName = self.BuildResultsSubFolderName + "\\" + JustFileName + ".log"
         self.LogFile = open(LogFilePathAndName,'w')
 
         # Print a separator line to make screen output easier to read.
         self.PrintToScreenAndFile("-----------------------------------------------------------", True)
 
         # Print the TestName, self.BuildResultsSubFolderName and LogFilePathAndName.
-        self.PrintToScreenAndFile("TestName = %s" % TestName, True)
+        self.PrintToScreenAndFile("self.TestName = %s" % self.TestName, True)
         self.PrintToScreenAndFile("self.BuildResultsSubFolderName = %s" % self.BuildResultsSubFolderName, True)
         self.PrintToScreenAndFile("LogFilePathAndName = %s" % LogFilePathAndName, True)
 
@@ -172,17 +185,23 @@ class FaultInjectionUtils:
     # Check if the file found is in the list of folders allowed to be modified.
     def IsFileFoundInBlackfinProjFolder(self, filename):
         isFileFound = False
-        self.DiagFileToEditWithPath = self.BlackfinDiagEditPath + "\\" + filename
-        if os.path.isfile(self.DiagFileToEditWithPath):
+        FileToEditWithPath = self.BlackfinDiagEditPath + "\\" + filename
+		
+        self.SourceFileName = filename
+
+        if os.path.isfile(FileToEditWithPath):
             isFileFound = True
+            self.FileToEditIndex += 1
+            self.FileToEditWithPath[self.FileToEditIndex] = FileToEditWithPath
+            
 
         return isFileFound
 
     #-------------------------------------------------------------------------
     # Modify the file as specified in the fault injection script file's dictionary.
     def ModifyFile(self, fileModificationsDictionary, filename):
-        self.PrintToScreenAndFile("Modifying file %s" % self.DiagFileToEditWithPath, True)
-        fileToEdit = open(self.DiagFileToEditWithPath)
+        self.PrintToScreenAndFile("Modifying file %s" % self.FileToEditWithPath[self.currentFileToEditIndex], True)
+        fileToEdit = open(self.FileToEditWithPath[self.currentFileToEditIndex])
         text = fileToEdit.read()
         fileToEdit.close()
         for newblock in fileModificationsDictionary[filename]:
@@ -196,53 +215,68 @@ class FaultInjectionUtils:
             try:
                 start = text.index(patternStart)
             except ValueError:
-                UnexpectedError = "Search pattern '%s' not found in %s" % (patternStart, self.DiagFileToEditWithPath)
+                UnexpectedError = "Search pattern '%s' not found in %s" % (patternStart, self.FileToEditWithPath[self.currentFileToEditIndex])
                 self.PrintToScreenAndFile(UnexpectedError, False)
                 raise RuntimeError, UnexpectedError
             try:
                 end = text.index(patternEnd, start) + len(patternEnd)
             except ValueError:
-                UnexpectedError = "Search pattern '%s' not found in %s" % (patternEnd, self.DiagFileToEditWithPath)
+                UnexpectedError = "Search pattern '%s' not found in %s" % (patternEnd, self.FileToEditWithPath[self.currentFileToEditIndex])
                 self.PrintToScreenAndFile(UnexpectedError, False)
                 raise RuntimeError, UnexpectedError
             result = text[start:end]
             text = text.replace(result,newblock_woPattern)
-        fileToEdit = open(self.DiagFileToEditWithPath,'w')
+        fileToEdit = open(self.FileToEditWithPath[self.currentFileToEditIndex],'w')
         fileToEdit.write(text)
         fileToEdit.close()
-        self.PrintToScreenAndFile("File %s has been Modified" % self.DiagFileToEditWithPath, True)
+        self.PrintToScreenAndFile("File %s has been Modified" % self.FileToEditWithPath[self.currentFileToEditIndex], True)
 
     #-------------------------------------------------------------------------
     # Process all of the file names in the fault injection script file's dictionary,
     # check the files out, modify the files and copy the files to the build results folder.
-    def ProcessBlackfinFileModificationsDict(self, fileModificationsDictionary):
+    def ProcessFileModificationsDictionary(self, fileModificationsDictionary):
+        self.FileToEditWithPath = range(MAX_NUMBER_OF_SRC_FILES_ALLOWED_TO_BE_MODIFIED)
+        filenameArray = range(MAX_NUMBER_OF_SRC_FILES_ALLOWED_TO_BE_MODIFIED)
+        self.FileToEditIndex = -1
 
-        for filename in fileModificationsDictionary.keys() :
-            break
-        
-        if not self.IsFileFoundInBlackfinProjFolder( filename ):
-            UnexpectedError = "File '%s' was not found in any of the allowed folders" % filename
-            self.PrintToScreenAndFile(UnexpectedError, False)
-            raise RuntimeError, UnexpectedError
+        # Determine the paths to all of the files to be modified.
+        for filename in fileModificationsDictionary.keys():
+            self.PrintToScreenAndFile("filename = %s" % filename, True)
+            # Check if the file exists in one of the allowed folders. If not, return an error.
+            if not self.IsFileFoundInBlackfinProjFolder(filename):
+                UnexpectedError = "File '%s' was not found in any of the allowed folders" % filename
+                self.PrintToScreenAndFile(UnexpectedError, False)
+                raise RuntimeError, UnexpectedError
+            filenameArray[self.FileToEditIndex] = filename
+ 
+        # Loop through all of the files to edit and process each one.
+        for self.currentFileToEditIndex in range(0, self.FileToEditIndex + 1):
+            # Check if the file is already checked out.
+            self.PrintToScreenAndFile("Checking if file %s is already checked out..." % self.FileToEditWithPath[self.currentFileToEditIndex], True)
+            if clearcase.isCheckedOut(self.FileToEditWithPath[self.currentFileToEditIndex]):
+                UnexpectedError = "File %s already Checked Out!" % self.FileToEditWithPath[self.currentFileToEditIndex]
+                self.PrintToScreenAndFile(UnexpectedError, False)
+                raise RuntimeError, UnexpectedError
+            self.PrintToScreenAndFile("File %s is not already checked out" % self.FileToEditWithPath[self.currentFileToEditIndex], True)
 
-        if clearcase.isCheckedOut(self.DiagFileToEditWithPath):
-            UnexpectedError = "File %s already Checked Out!" % self.DiagFileToEditWithPath
-            self.PrintToScreenAndFile(UnexpectedError, False)
-            raise RuntimeError, UnexpectedError
-            self.PrintToScreenAndFile("File %s is not already checked out" % self.DiagFileToEditWithPath, True)
+            # Check the file out.
+            self.PrintToScreenAndFile("Checking out file %s" % self.FileToEditWithPath[self.currentFileToEditIndex], True)
+            if clearcase.checkout(self.FileToEditWithPath[self.currentFileToEditIndex], False, 'Temporary Checkout for Fault Injection Test.') != None:
+                UnexpectedError = "Error while trying to checkout file %s!" % self.FileToEditWithPath[self.currentFileToEditIndex]
+                self.PrintToScreenAndFile(UnexpectedError, False)
+                raise RuntimeError, UnexpectedError
+            self.PrintToScreenAndFile("File %s has been checked out." % self.FileToEditWithPath[self.currentFileToEditIndex], True)
 
-        # Check the file out.
-        self.PrintToScreenAndFile("Checking out file %s" % self.DiagFileToEditWithPath, True)
-        
-        if clearcase.checkout(self.DiagFileToEditWithPath, False, 'Temporary Checkout for Fault Injection Test.') != None:
-            UnexpectedError = "Error while trying to checkout file %s!" % self.DiagFileToEditWithPath
-            self.PrintToScreenAndFile(UnexpectedError, False)
-            raise RuntimeError, UnexpectedError
-        
-        self.PrintToScreenAndFile("File %s has been checked out." % self.DiagFileToEditWithPath, True)
-        
-		# Modify the file.
-        self.ModifyFile(fileModificationsDictionary, filename)
+            # Modify the file.
+            self.ModifyFile(fileModificationsDictionary, filenameArray[self.currentFileToEditIndex])
+
+            # Copy the modified file to the build results folder.
+            self.PrintToScreenAndFile("Copying modified file %s" % self.FileToEditWithPath[self.currentFileToEditIndex], True)
+            if shutil.copyfile(self.FileToEditWithPath[self.currentFileToEditIndex], self.BuildResultsSubFolderName + "\\" + filenameArray[self.currentFileToEditIndex] + ".modified") != None:
+                UnexpectedError = "Error while trying to copy modified file %s!" % self.FileToEditWithPath[self.currentFileToEditIndex]
+                self.PrintToScreenAndFile(UnexpectedError, False)
+                raise RuntimeError, UnexpectedError
+            self.PrintToScreenAndFile("Modified file %s has been copied as %s" % (self.FileToEditWithPath[self.currentFileToEditIndex], filenameArray[self.currentFileToEditIndex] + ".modified"), True)
 
     #-------------------------------------------------------------------------
     # Build the modified code.
@@ -282,21 +316,20 @@ class FaultInjectionUtils:
         shutil.copytree(BinaryFolder, TestBuildResultsFolder)
         self.PrintToScreenAndFile("Copy the binary files folder to the build results folder.", True)
 
+
     #-----------------------------------------------------------------------------
     # Undo the check out of all of the files in the fault injection script file's
     # dictionary that were checked out.
     def UndoCheckouts(self):
         self.PrintToScreenAndFile("Undoing Checkouts...", True)
-
-        if clearcase.isCheckedOut(self.DiagFileToEditWithPath):
-            self.PrintToScreenAndFile("Undoing checkout of file %s..." % self.DiagFileToEditWithPath, True)
-            
-        if clearcase.uncheckout(self.DiagFileToEditWithPath, keep = True) != None:
-            UnexpectedError = "Error while trying to uncheckout file %s!" % self.DiagFileToEditWithPath
-            self.PrintToScreenAndFile(UnexpectedError, False)
-            raise RuntimeError, UnexpectedError
-            
-        self.PrintToScreenAndFile("File %s has been unchecked out" % self.DiagFileToEditWithPath, True)
+        for currentFileToEditIndex in range(0, self.FileToEditIndex + 1):
+            if clearcase.isCheckedOut(self.FileToEditWithPath[currentFileToEditIndex]):
+                self.PrintToScreenAndFile("Undoing checkout of file %s..." % self.FileToEditWithPath[currentFileToEditIndex], True)
+                if clearcase.uncheckout(self.FileToEditWithPath[currentFileToEditIndex], keep = True) != None:
+                    UnexpectedError = "Error while trying to uncheckout file %s!" % self.FileToEditWithPath[currentFileToEditIndex]
+                    self.PrintToScreenAndFile(UnexpectedError, False)
+                    raise RuntimeError, UnexpectedError
+                self.PrintToScreenAndFile("File %s has been unchecked out" % self.FileToEditWithPath[currentFileToEditIndex], True)
 
     #-------------------------------------------------------------------------
     # Each fault injection script file calls into this method and passes in a
@@ -330,7 +363,7 @@ class FaultInjectionUtils:
         try:
             # Process all of the file names in the fault injection script file's dictionary,
             # check the files out, modify the files and copy the files to the build results folder.
-            self.ProcessBlackfinFileModificationsDict(fileModificationsDictionary)
+            self.ProcessFileModificationsDictionary(fileModificationsDictionary)
 
             # Build the modified code.
             self.BuildModifiedCode()
