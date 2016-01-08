@@ -81,6 +81,17 @@ BLACKFIN_MAKE_CLEAN_CMD                          = "IRT8I_ReleaseDB_clean"
 
 BLACKFIN_MAKE_CMD                                = "IRT8I_ReleaseDB"
 
+APEX_PRODUCT_NAME                                = "ApexFIT"
+
+APEX_MAIN_FOLDER                                 = "\\apex\\"
+
+APEX_PROJECT                                     = "Release"
+
+APEX_DIAG_PATH                                   = ""
+
+APEX_MAKE_CLEAN_CMD                              = "clean"
+
+APEX_MAKE_CMD                                = "all"
 # Define constants that should not change.
 SEARCH_VOB_STR                                            = "\\FIT"
 
@@ -88,7 +99,7 @@ BUILD_LOG_FILE_NAME                                       = "build.log"
 
 BUILD_RESULTS_FOLDER_NAME                                 = "Build_Results"
 
-BUILD_FILES_FOLDER_NAME                                   = "\\ReleaseDB\\"
+BUILD_FILES_FOLDER_NAME                                   = "\\Release\\"
 
 MAX_NUMBER_OF_SRC_FOLDERS_ALLOWED_TO_BE_MODIFIED          = 100
 
@@ -129,7 +140,8 @@ class FaultInjectionUtils:
         cwdStr = os.getcwd()
         today = datetime.date.today()
         
-        BuildResultsSubFolderName = cwdStr + "\\" + BUILD_RESULTS_FOLDER_NAME + "\\" + str(today) + "_" + BLACKFIN_PRODUCT_NAME + "_" + JustFileName
+        BuildResultsSubFolderName = cwdStr + "\\" + BUILD_RESULTS_FOLDER_NAME + "\\" + str(today) + "_" + self.ProductName + JustFileName 
+        #BLACKFIN_PRODUCT_NAME + "_" + JustFileName
 
         self.BuildResultsSubFolderName = BuildResultsSubFolderName.replace ("-", "_")
 
@@ -178,30 +190,53 @@ class FaultInjectionUtils:
         # SEARCH_VOB_STR was found so the view path is the current working directory truncated at the VOB string index.
         self.ViewPath = cwdStr[:vobStrIndex]
         self.PrintToScreenAndFile("self.ViewPath = %s" % self.ViewPath, True)
-        self.BlackfinBuildPath = self.ViewPath + BLACKFIN_MAIN_FOLDER + BLACKFIN_PROJECT
-        self.BlackfinDiagEditPath = self.ViewPath + BLACKFIN_MAIN_FOLDER + BLACKFIN_DIAG_PATH
+        self.BlackfinBuildPath = self.ViewPath + self.MainFolder + self.ProjectFolder
+        self.BlackfinDiagEditPath = self.ViewPath + self.MainFolder + self.DiagFolder
 
-    #-------------------------------------------------------------------------
-    # Check if the file found is in the list of folders allowed to be modified.
-    def IsFileFoundInBlackfinProjFolder(self, filename):
+    def IsFileFoundInPath( self, path, filename ):
         isFileFound = False
-        FileToEditWithPath = self.BlackfinDiagEditPath + "\\" + filename
-		
-        self.SourceFileName = filename
-
+	    
+        FileToEditWithPath = path+"\\"+filename
+	    
         if os.path.isfile(FileToEditWithPath):
             isFileFound = True
             self.FileToEditIndex += 1
             self.FileToEditWithPath[self.FileToEditIndex] = FileToEditWithPath
-            
-
+       
         return isFileFound
 
     #-------------------------------------------------------------------------
+    # Check if the file found is in the list of folders allowed to be modified.
+    def IsFileFoundInBlackfinProjFolder(self, filename):
+        self.SourceFileName = filename
+
+        return self.IsFileFoundInPath( self.BlackfinDiagEditPath, filename )
+
+    #-------------------------------------------------------------------------
+    # Check if the file found is in the list of folders allowed to be modified.
+    def IsFileFoundInAllowedFolders(self, filename):
+        productString = "%" + self.ProductName + "%" # for product-specific paths
+
+        for lineIndex in range(0, self.AllowedFolderFileLineCount):
+            if len(self.AllowedFolder[lineIndex]) and (self.AllowedFolder[lineIndex][0] != "#") and \
+                  (self.AllowedFolder[lineIndex][0] != " "):
+
+                if productString in self.AllowedFolder[lineIndex]:
+                    self.AllowedFolder[lineIndex] = self.AllowedFolder[lineIndex].replace("%", "")
+
+                # Determine the file path and confirm that it exists.
+                filePath = self.ViewPath + self.AllowedFolder[lineIndex]
+	            
+                if ( IsFileFoundInPath( filePath, filename ) ):
+                    return True
+				
+        return False
+
+    #-------------------------------------------------------------------------
     # Modify the file as specified in the fault injection script file's dictionary.
-    def ModifyFile(self, fileModificationsDictionary, filename):
-        self.PrintToScreenAndFile("Modifying file %s" % self.FileToEditWithPath[self.currentFileToEditIndex], True)
-        fileToEdit = open(self.FileToEditWithPath[self.currentFileToEditIndex])
+    def ModifyFile(self, fileModificationsDictionary, filename, fileNameWithPath):
+        self.PrintToScreenAndFile("Modifying file %s" % fileNameWithPath, True)
+        fileToEdit = open(fileNameWithPath)
         text = fileToEdit.read()
         fileToEdit.close()
         for newblock in fileModificationsDictionary[filename]:
@@ -215,21 +250,21 @@ class FaultInjectionUtils:
             try:
                 start = text.index(patternStart)
             except ValueError:
-                UnexpectedError = "Search pattern '%s' not found in %s" % (patternStart, self.FileToEditWithPath[self.currentFileToEditIndex])
+                UnexpectedError = "Search pattern '%s' not found in %s" % (patternStart, fileNameWithPath)
                 self.PrintToScreenAndFile(UnexpectedError, False)
                 raise RuntimeError, UnexpectedError
             try:
                 end = text.index(patternEnd, start) + len(patternEnd)
             except ValueError:
-                UnexpectedError = "Search pattern '%s' not found in %s" % (patternEnd, self.FileToEditWithPath[self.currentFileToEditIndex])
+                UnexpectedError = "Search pattern '%s' not found in %s" % (patternEnd, fileNameWithPath)
                 self.PrintToScreenAndFile(UnexpectedError, False)
                 raise RuntimeError, UnexpectedError
             result = text[start:end]
             text = text.replace(result,newblock_woPattern)
-        fileToEdit = open(self.FileToEditWithPath[self.currentFileToEditIndex],'w')
+        fileToEdit = open(fileNameWithPath,'w')
         fileToEdit.write(text)
         fileToEdit.close()
-        self.PrintToScreenAndFile("File %s has been Modified" % self.FileToEditWithPath[self.currentFileToEditIndex], True)
+        self.PrintToScreenAndFile("File %s has been Modified" % fileNameWithPath, True)
 
     #-------------------------------------------------------------------------
     # Process all of the file names in the fault injection script file's dictionary,
@@ -268,7 +303,7 @@ class FaultInjectionUtils:
             self.PrintToScreenAndFile("File %s has been checked out." % self.FileToEditWithPath[self.currentFileToEditIndex], True)
 
             # Modify the file.
-            self.ModifyFile(fileModificationsDictionary, filenameArray[self.currentFileToEditIndex])
+            self.ModifyFile(fileModificationsDictionary, filenameArray[self.currentFileToEditIndex], self.FileToEditWithPath[self.currentFileToEditIndex])
 
             # Copy the modified file to the build results folder.
             self.PrintToScreenAndFile("Copying modified file %s" % self.FileToEditWithPath[self.currentFileToEditIndex], True)
@@ -283,9 +318,9 @@ class FaultInjectionUtils:
     def BuildModifiedCode(self):
         os.chdir(self.BlackfinBuildPath)
 
-        CleanBuildCmd = "make " + BLACKFIN_MAKE_CLEAN_CMD
+        CleanBuildCmd = "make " + self.MakeCleanCmd
 		
-        BuildCmd = "make " + BLACKFIN_MAKE_CMD
+        BuildCmd = "make " + self.MakeCmd
 		
         if os.system(CleanBuildCmd) :
             UnexpectedError = "Error while doing a 'clean' build the modified code! See %s\\%s for the errors!" % (self.BlackfinBuildPath, BUILD_LOG_FILE_NAME)
@@ -330,14 +365,27 @@ class FaultInjectionUtils:
                     self.PrintToScreenAndFile(UnexpectedError, False)
                     raise RuntimeError, UnexpectedError
                 self.PrintToScreenAndFile("File %s has been unchecked out" % self.FileToEditWithPath[currentFileToEditIndex], True)
-
+        if clearcase.isCheckedOut(self.MakeFileWithPath):
+            self.PrintToScreenAndFile("Undoing checkout of file %s..." % self.MakeFileWithPath, True)
+            if clearcase.uncheckout(self.MakeFileWithPath, keep = True) != None:
+                UnexpectedError = "Error while trying to uncheckout file %s!" % self.MakeFileWithPath
+                self.PrintToScreenAndFile(UnexpectedError, False)
+                raise RuntimeError, UnexpectedError
+            self.PrintToScreenAndFile("File %s has been unchecked out" % self.MakeFileWithPath, True)
     #-------------------------------------------------------------------------
     # Each fault injection script file calls into this method and passes in a
     # dictionary of the files to be modified by this script as well as the
     # fault injection script file's name.  The dictionary passed in includes
     # the blocks of new code (the first two lines of the block are text to
     # search for) for each of the modified files.
-    def ModifyAndBuildFaultInjectionFile(self, fileModificationsDictionary, TestName):
+    def ModifyFileBuildFaultInjectionTest(self, fileModificationsDictionary, TestName):
+        self.ProductName = BLACKFIN_PRODUCT_NAME
+        self.MainFolder = BLACKFIN_MAIN_FOLDER
+        self.ProjectFolder = BLACKFIN_PROJECT
+        self.DiagFolder = BLACKFIN_DIAG_PATH
+        self.MakeCleanCmd = BLACKFIN_MAKE_CLEAN_CMD
+        self.MakeCmd = BLACKFIN_MAKE_CMD
+
         # Note: To run multiple scripts using a batch file:
         #     1. Check out this file.
         #     2. Comment out the call to self.GetProductSelection() below.
@@ -353,9 +401,6 @@ class FaultInjectionUtils:
         #            call python InteractiveWatchdogFaultInjectionTest2.py
         #     7. When done, undo the checkout of this file. Do not check these
         #        changes in.
-
-        # Perform all necessary initialization.
-        self.Init(TestName)
 
         # Use try/except to detect any exceptions that are thrown after one
         # or more files have been checked out so checkouts can be undone
@@ -383,3 +428,92 @@ class FaultInjectionUtils:
 
         # Print a message indicating successful completion.
         self.PrintToScreenAndFile("faultInjectionUtils.FaultInjectionUtils().ModifyAndBuildFaultInjectionFile() completed successfully!", True)
+
+    def BlackfinModifyAndBuildFaultInjectionFile(self, fileModificationsDictionary, TestName):
+        self.ProductName = BLACKFIN_PRODUCT_NAME
+        self.MainFolder = BLACKFIN_MAIN_FOLDER
+        self.ProjectFolder = BLACKFIN_PROJECT
+        self.DiagFolder = BLACKFIN_DIAG_PATH
+        self.MakeCleanCmd = BLACKFIN_MAKE_CLEAN_CMD
+        self.MakeCmd = BLACKFIN_MAKE_CMD
+        # Perform all necessary initialization.
+        self.Init(TestName)
+        self.ModifyFileBuildFaultInjectionTest(fileModificationsDictionary, TestName)
+    
+    def ModifyAndBuildFaultInjectionFile(self, fileModificationsDictionary, TestName):
+        makefileModificationsDictionaryRM = { \
+			'makefile': [ \
+			# # # # # # # # # # # # # # # # # # # # # # # # #
+			'''
+            # Start Fault Injection Point 1
+            # End Fault Injection Point 1
+            # Fault Injection Code Start
+RM :=cmd /C del /F /Q
+            # Fault Injection Code End
+		    '''
+			]
+        }
+        makefileModificationsDictionaryDEL = { \
+			'makefile':[ \
+			# # # # # # # # # # # # # # # # # # # # # # # # # 
+			''' 
+            # Start Fault Injection Point 2
+            # End Fault Injection Point 2
+            # Fault Injection Code Start
+	-$(RM) ".\\apexbin.h"
+	-$(RM) ".\\._2"
+	-$(RM) ".\\._4"
+	-$(RM) ".\\apex.*"
+	-$(RM) ".\\*.bin"
+	-$(RM) ".\\OS\\*.o"
+	-$(RM) ".\\OS\\*.d"
+	-$(RM) ".\\*.o"
+	-$(RM) ".\\*.d"
+	-$(RM) ".\\ControlBus\\*.o"
+	-$(RM) ".\\ControlBus\\*.d"
+	-$(RM) ".\\OS\\*.o"
+	-$(RM) ".\\OS\\*.d"
+	-$(RM) ".\\Utility\\*.o"
+	-$(RM) ".\\Utility\\*.d"
+            # Fault Injection Code End
+		    '''
+			]
+        }
+        self.ProductName = APEX_PRODUCT_NAME
+        self.MainFolder = APEX_MAIN_FOLDER
+        self.ProjectFolder = APEX_PROJECT
+        self.DiagFolder = APEX_DIAG_PATH
+        self.MakeCleanCmd = APEX_MAKE_CLEAN_CMD
+        self.MakeCmd = APEX_MAKE_CMD
+        # Perform all necessary initialization.
+        self.Init(TestName)
+        self.MakeFileWithPath = self.BlackfinBuildPath + "\\" + "makefile"
+
+        if clearcase.isCheckedOut(self.MakeFileWithPath):
+            if clearcase.uncheckout(self.MakeFileWithPath, keep = True) != None:
+                UnexpectedError = "Error while trying to uncheckout file %s!" % self.MakeFileWithPath
+                self.PrintToScreenAndFile(UnexpectedError, False)
+                raise RuntimeError, UnexpectedError
+            UnexpectedError = "File %s already Checked Out!" % self.MakeFileWithPath
+            self.PrintToScreenAndFile(UnexpectedError, False)
+            raise RuntimeError, UnexpectedError
+        self.PrintToScreenAndFile("File %s is not already checked out" % self.MakeFileWithPath, True)
+
+        # Check the file out.
+        self.PrintToScreenAndFile("Checking out file %s" % self.MakeFileWithPath, True)
+        if clearcase.checkout(self.MakeFileWithPath, False, 'Temporary Checkout for Fault Injection Test.') != None:
+            UnexpectedError = "Error while trying to checkout file %s!" % self.MakeFileWithPath
+            self.PrintToScreenAndFile(UnexpectedError, False)
+            raise RuntimeError, UnexpectedError
+        self.PrintToScreenAndFile("File %s has been checked out." % self.MakeFileWithPath, True)
+        
+        # Modify the file.
+        self.ModifyFile(makefileModificationsDictionaryRM, "makefile", self.MakeFileWithPath)
+        self.ModifyFile(makefileModificationsDictionaryDEL, "makefile", self.MakeFileWithPath)
+
+
+        self.ModifyFileBuildFaultInjectionTest(self, fileModificationsDictionary, TestName)
+
+
+
+

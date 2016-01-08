@@ -38,4 +38,4 @@ fileModificationsDictionary = { \
 
 # Call the procedure to modify and build the test firmware code with the
 # above modifications.
-blackfinFaultInjectionUtils.FaultInjectionUtils().ModifyAndBuildFaultInjectionFile(fileModificationsDictionary, __file__)
+blackfinFaultInjectionUtils.FaultInjectionUtils().BlackfinModifyAndBuildFaultInjectionFile(fileModificationsDictionary, __file__)

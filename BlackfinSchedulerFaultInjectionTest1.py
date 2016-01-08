@@ -43,10 +43,10 @@ fileModificationsDictionary = { \
 //WithoutFaultInjection
 //            static const UINT32 PERIOD_FOR_ALL_DIAGNOSTICS_COMPLETED_MS     = 4 * 60 * 60 * 1000; // 4 hours for now, number of milleseconds in 4 hours
 // Fault Injection Code End
-    ''',
+    '''
     ]
 }
 
 # Call the procedure to modify and build the test firmware code with the
 # above modifications.
-blackfinFaultInjectionUtils.FaultInjectionUtils().ModifyAndBuildFaultInjectionFile(fileModificationsDictionary, __file__)
+blackfinFaultInjectionUtils.FaultInjectionUtils().BlackfinModifyAndBuildFaultInjectionFile(fileModificationsDictionary, __file__)
