@@ -71,31 +71,37 @@ import msvcrt     # For getch
 #
 BLACKFIN_PRODUCT_NAME                            = "BlackfinFIT"
 
-BLACKFIN_MAIN_FOLDER                             = "\\Blackfin\\"
+BLACKFIN_PRODUCT_FOLDER                          = "Blackfin"
 
-BLACKFIN_PROJECT                                 = "1756IRT8I"
+BLACKFIN_PROJECT_FOLDER                          = "1756IRT8I"
+
+BLACKFIN_BUILD_TYPE_FOLDER                       = "Release"
 
 BLACKFIN_DIAG_PATH                               = "\\Common\\Diag"
 
-BLACKFIN_MAKE_CLEAN_CMD                          = "IRT8I_ReleaseDB_clean"
+BLACKFIN_MAKE_CLEAN_CMD                          = "IRT8I_Release_clean"
 
-BLACKFIN_MAKE_CMD                                = "IRT8I_ReleaseDB"
+BLACKFIN_MAKE_CMD                                = "IRT8I_Release"
+
+BLACKFIN_BUILD_SCRIPT                            = "Module_Build.bat"
 
 APEX_PRODUCT_NAME                                = "ApexFIT"
 
-APEX_MAIN_FOLDER                                 = "\\apex\\"
+APEX_PRODUCT_FOLDER                              = "apex"
 
-APEX_PROJECT                                     = "Release"
+APEX_PROJECT_FOLDER                              = "Release"
 
 APEX_DIAG_PATH                                   = ""
 
 APEX_MAKE_CLEAN_CMD                              = "clean"
 
-APEX_MAKE_CMD                                = "all"
+APEX_MAKE_CMD                                    = "all"
+
+APEX_BUILD_SCRIPT                                = "APEX2_Build_Test.bat"
 # Define constants that should not change.
 SEARCH_VOB_STR                                            = "\\FIT"
 
-BUILD_LOG_FILE_NAME                                       = "build.log"
+SEARCH_BRANCH_STR                                         = "\\Analog\NextGen\\FIT"
 
 BUILD_RESULTS_FOLDER_NAME                                 = "Build_Results"
 
@@ -139,9 +145,8 @@ class FaultInjectionUtils:
         # Determine the build results sub folder name.
         cwdStr = os.getcwd()
         today = datetime.date.today()
-        
+
         BuildResultsSubFolderName = cwdStr + "\\" + BUILD_RESULTS_FOLDER_NAME + "\\" + str(today) + "_" + self.ProductName + JustFileName 
-        #BLACKFIN_PRODUCT_NAME + "_" + JustFileName
 
         self.BuildResultsSubFolderName = BuildResultsSubFolderName.replace ("-", "_")
 
@@ -187,11 +192,18 @@ class FaultInjectionUtils:
             self.PrintToScreenAndFile(UnexpectedError, False)
             raise RuntimeError, UnexpectedError
 
+        vobBranchPathIndex = cwdStr.find(SEARCH_BRANCH_STR)
+        if vobBranchPathIndex < 0:
+            UnexpectedError = "Search VOB string '%s' not in current working directory (%s)" % (vobBranchPathIndex, cwdStr)
+            self.PrintToScreenAndFile(UnexpectedError, False)
+            raise RuntimeError, UnexpectedError
+
+
         # SEARCH_VOB_STR was found so the view path is the current working directory truncated at the VOB string index.
         self.ViewPath = cwdStr[:vobStrIndex]
         self.PrintToScreenAndFile("self.ViewPath = %s" % self.ViewPath, True)
-        self.BlackfinBuildPath = self.ViewPath + self.MainFolder + self.ProjectFolder
-        self.BlackfinDiagEditPath = self.ViewPath + self.MainFolder + self.DiagFolder
+        self.BranchPath = cwdStr[:vobBranchPathIndex]
+        self.PrintToScreenAndFile("self.BranchPath = %s" % self.ViewPath, True)
 
     def IsFileFoundInPath( self, path, filename ):
         isFileFound = False
@@ -207,10 +219,10 @@ class FaultInjectionUtils:
 
     #-------------------------------------------------------------------------
     # Check if the file found is in the list of folders allowed to be modified.
-    def IsFileFoundInBlackfinProjFolder(self, filename):
+    def IsFileFoundInDiagnosticSourceFileFolder(self, filename):
         self.SourceFileName = filename
 
-        return self.IsFileFoundInPath( self.BlackfinDiagEditPath, filename )
+        return self.IsFileFoundInPath( self.DiagEditPath, filename )
 
     #-------------------------------------------------------------------------
     # Check if the file found is in the list of folders allowed to be modified.
@@ -278,7 +290,7 @@ class FaultInjectionUtils:
         for filename in fileModificationsDictionary.keys():
             self.PrintToScreenAndFile("filename = %s" % filename, True)
             # Check if the file exists in one of the allowed folders. If not, return an error.
-            if not self.IsFileFoundInBlackfinProjFolder(filename):
+            if not self.IsFileFoundInDiagnosticSourceFileFolder(filename):
                 UnexpectedError = "File '%s' was not found in any of the allowed folders" % filename
                 self.PrintToScreenAndFile(UnexpectedError, False)
                 raise RuntimeError, UnexpectedError
@@ -316,39 +328,32 @@ class FaultInjectionUtils:
     #-------------------------------------------------------------------------
     # Build the modified code.
     def BuildModifiedCode(self):
-        os.chdir(self.BlackfinBuildPath)
+        #os.chdir(self.PathToBuildImageFrom)
 
-        CleanBuildCmd = "make " + self.MakeCleanCmd
-		
-        BuildCmd = "make " + self.MakeCmd
-		
-        if os.system(CleanBuildCmd) :
-            UnexpectedError = "Error while doing a 'clean' build the modified code! See %s\\%s for the errors!" % (self.BlackfinBuildPath, BUILD_LOG_FILE_NAME)
+        if os.system(self.CleanBuildCmd) :
+            UnexpectedError = "Error while doing a 'clean' build the modified code! "
             self.PrintToScreenAndFile(UnexpectedError, False)
             raise RuntimeError, UnexpectedError
 
-        if os.system(BuildCmd) :
-            UnexpectedError = "Error while doing a build the modified code! See %s\\%s for the errors!" % (self.BlackfinBuildPath, BUILD_LOG_FILE_NAME)
+        if os.system(self.BuildExecutableCmd) :
+            UnexpectedError = "Error while doing a build the modified code!"
             self.PrintToScreenAndFile(UnexpectedError, False)
             raise RuntimeError, UnexpectedError
 
         self.PrintToScreenAndFile("Building Modified Firmware...", True)
-        self.PrintToScreenAndFile("For details, see build log file %s." % self.BuildResultsSubFolderName + "\\" + BUILD_LOG_FILE_NAME, True)
 
     #-------------------------------------------------------------------------
     # Copy the product build binary folder to the build results subfolder.
     def CopyBinaryFolder(self):
         TestBuildResultsFolder = self.BuildResultsSubFolderName + BUILD_FILES_FOLDER_NAME
         
-        BinaryFolder = self.BlackfinBuildPath + BUILD_FILES_FOLDER_NAME
-
         # If a previous binary files folder already exists under the fault injection build results folder, delete it since copytree will fail if it already exists.
         if os.path.exists(TestBuildResultsFolder):
             shutil.rmtree(TestBuildResultsFolder)
 
         # Copy the binary files folder to the build results folder.
         self.PrintToScreenAndFile("Copying the binary files folder (%s) to the build results folder (%s)." % (BinaryFolder, TestBuildResultsFolder), True)
-        shutil.copytree(BinaryFolder, TestBuildResultsFolder)
+        shutil.copytree(self.ResultsOfBuildFolder, TestBuildResultsFolder)
         self.PrintToScreenAndFile("Copy the binary files folder to the build results folder.", True)
 
 
@@ -356,6 +361,16 @@ class FaultInjectionUtils:
     # Undo the check out of all of the files in the fault injection script file's
     # dictionary that were checked out.
     def UndoCheckouts(self):
+        FailureToUncheckAll = false
+
+        if self.MakeFileWithPath != "" :
+            if clearcase.isCheckedOut(self.MakeFileWithPath):
+                self.PrintToScreenAndFile("Undoing makefile checkout", True)
+                if clearcase.uncheckout(self.MakeFileWithPath):
+                    UnexpectedError = "Error while trying to uncheckout makefile"
+                    self.PrintToScreenAndFile(UnexpectedError,False)
+                    FailureToUncheckAll = True
+        
         self.PrintToScreenAndFile("Undoing Checkouts...", True)
         for currentFileToEditIndex in range(0, self.FileToEditIndex + 1):
             if clearcase.isCheckedOut(self.FileToEditWithPath[currentFileToEditIndex]):
@@ -363,15 +378,11 @@ class FaultInjectionUtils:
                 if clearcase.uncheckout(self.FileToEditWithPath[currentFileToEditIndex], keep = True) != None:
                     UnexpectedError = "Error while trying to uncheckout file %s!" % self.FileToEditWithPath[currentFileToEditIndex]
                     self.PrintToScreenAndFile(UnexpectedError, False)
-                    raise RuntimeError, UnexpectedError
-                self.PrintToScreenAndFile("File %s has been unchecked out" % self.FileToEditWithPath[currentFileToEditIndex], True)
-        if clearcase.isCheckedOut(self.MakeFileWithPath):
-            self.PrintToScreenAndFile("Undoing checkout of file %s..." % self.MakeFileWithPath, True)
-            if clearcase.uncheckout(self.MakeFileWithPath, keep = True) != None:
-                UnexpectedError = "Error while trying to uncheckout file %s!" % self.MakeFileWithPath
-                self.PrintToScreenAndFile(UnexpectedError, False)
-                raise RuntimeError, UnexpectedError
-            self.PrintToScreenAndFile("File %s has been unchecked out" % self.MakeFileWithPath, True)
+                    FailureToUncheckAll = True
+                else:
+                    self.PrintToScreenAndFile("File %s has been unchecked out" % self.FileToEditWithPath[currentFileToEditIndex], True)
+        if FailureToUncheckAll == True:
+            raise RuntimeError, "Unable to Checkout All Files"
     #-------------------------------------------------------------------------
     # Each fault injection script file calls into this method and passes in a
     # dictionary of the files to be modified by this script as well as the
@@ -379,13 +390,6 @@ class FaultInjectionUtils:
     # the blocks of new code (the first two lines of the block are text to
     # search for) for each of the modified files.
     def ModifyFileBuildFaultInjectionTest(self, fileModificationsDictionary, TestName):
-        self.ProductName = BLACKFIN_PRODUCT_NAME
-        self.MainFolder = BLACKFIN_MAIN_FOLDER
-        self.ProjectFolder = BLACKFIN_PROJECT
-        self.DiagFolder = BLACKFIN_DIAG_PATH
-        self.MakeCleanCmd = BLACKFIN_MAKE_CLEAN_CMD
-        self.MakeCmd = BLACKFIN_MAKE_CMD
-
         # Note: To run multiple scripts using a batch file:
         #     1. Check out this file.
         #     2. Comment out the call to self.GetProductSelection() below.
@@ -430,14 +434,22 @@ class FaultInjectionUtils:
         self.PrintToScreenAndFile("faultInjectionUtils.FaultInjectionUtils().ModifyAndBuildFaultInjectionFile() completed successfully!", True)
 
     def BlackfinModifyAndBuildFaultInjectionFile(self, fileModificationsDictionary, TestName):
-        self.ProductName = BLACKFIN_PRODUCT_NAME
-        self.MainFolder = BLACKFIN_MAIN_FOLDER
-        self.ProjectFolder = BLACKFIN_PROJECT
-        self.DiagFolder = BLACKFIN_DIAG_PATH
-        self.MakeCleanCmd = BLACKFIN_MAKE_CLEAN_CMD
-        self.MakeCmd = BLACKFIN_MAKE_CMD
+
         # Perform all necessary initialization.
+        self.ProductName = BLACKFIN_PRODUCT_NAME
+
         self.Init(TestName)
+
+        self.DiagEditPath      = self.ViewPath + "\\" + BLACKFIN_PRODUCT_FOLDER + "\\" + BLACKFIN_DIAG_PATH
+		
+        self.CleanBuildCmd = ".\\" + BLACKFIN_BUILD_SCRIPT + " " + self.BranchPath + " " + BLACKFIN_PROJECT_FOLDER + " " + BLACKFIN_MAKE_CLEAN_CMD
+		
+        self.BuildExecutableCmd = ".\\" + BLACKFIN_BUILD_SCRIPT + " " + self.BranchPath + " " + BLACKFIN_PROJECT_FOLDER + " " + BLACKFIN_MAKE_CMD
+
+        self.ResultsOfBuildFolder = self.ViewPath + "\\" + BLACKFIN_PRODUCT_FOLDER + "\\"  + BLACKFIN_PROJECT_FOLDER + "\\" + BLACKFIN_BUILD_TYPE_FOLDER
+
+        self.MakeFileWithPath = ""
+
         self.ModifyFileBuildFaultInjectionTest(fileModificationsDictionary, TestName)
     
     def ModifyAndBuildFaultInjectionFile(self, fileModificationsDictionary, TestName):
@@ -479,16 +491,22 @@ RM :=cmd /C del /F /Q
 		    '''
 			]
         }
-        self.ProductName = APEX_PRODUCT_NAME
-        self.MainFolder = APEX_MAIN_FOLDER
-        self.ProjectFolder = APEX_PROJECT
-        self.DiagFolder = APEX_DIAG_PATH
-        self.MakeCleanCmd = APEX_MAKE_CLEAN_CMD
-        self.MakeCmd = APEX_MAKE_CMD
-        # Perform all necessary initialization.
-        self.Init(TestName)
-        self.MakeFileWithPath = self.BlackfinBuildPath + "\\" + "makefile"
 
+        # Perform all necessary initialization.
+        self.ProductName = APEX_PRODUCT_NAME
+
+        self.Init(TestName)
+
+        self.DiagEditPath      = self.ViewPath + "\\" + APEX_PRODUCT_FOLDER + "\\" + APEX_DIAG_PATH
+
+        self.CleanBuildCmd = ".\\" + APEX_BUILD_SCRIPT + " " + self.BranchPath + " " + APEX_MAKE_CLEAN_CMD
+		
+        self.BuildExecutableCmd = ".\\" + APEX_BUILD_SCRIPT + " " + self.BranchPath + " " + APEX_MAKE_CMD
+
+        self.ResultsOfBuildFolder = self.ViewPath + "\\" + APEX_PRODUCT_FOLDER + "\\"  + APEX_PROJECT_FOLDER
+
+        self.MakeFileWithPath = self.ViewPath + "\\" + APEX_PRODUCT_FOLDER + "\\"  + APEX_PROJECT_FOLDER + "\\makefile"
+        
         if clearcase.isCheckedOut(self.MakeFileWithPath):
             if clearcase.uncheckout(self.MakeFileWithPath, keep = True) != None:
                 UnexpectedError = "Error while trying to uncheckout file %s!" % self.MakeFileWithPath

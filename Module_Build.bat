@@ -20,4 +20,4 @@ pushd %VIEW_PATH%\Analog\NextGen\Blackfin\%PROJ_FOLDER_NAME%
 popd
 
 rem made it to the end, report success
-EXIT 0
+
