@@ -352,7 +352,7 @@ class FaultInjectionUtils:
             shutil.rmtree(TestBuildResultsFolder)
 
         # Copy the binary files folder to the build results folder.
-        self.PrintToScreenAndFile("Copying the binary files folder (%s) to the build results folder (%s)." % (BinaryFolder, TestBuildResultsFolder), True)
+        self.PrintToScreenAndFile("Copying the binary files folder (%s) to the build results folder (%s)." % (self.ResultsOfBuildFolder, TestBuildResultsFolder), True)
         shutil.copytree(self.ResultsOfBuildFolder, TestBuildResultsFolder)
         self.PrintToScreenAndFile("Copy the binary files folder to the build results folder.", True)
 
@@ -361,7 +361,7 @@ class FaultInjectionUtils:
     # Undo the check out of all of the files in the fault injection script file's
     # dictionary that were checked out.
     def UndoCheckouts(self):
-        FailureToUncheckAll = false
+        FailureToUncheckAll = False
 
         if self.MakeFileWithPath != "" :
             if clearcase.isCheckedOut(self.MakeFileWithPath):
@@ -530,7 +530,7 @@ RM :=cmd /C del /F /Q
         self.ModifyFile(makefileModificationsDictionaryDEL, "makefile", self.MakeFileWithPath)
 
 
-        self.ModifyFileBuildFaultInjectionTest(self, fileModificationsDictionary, TestName)
+        self.ModifyFileBuildFaultInjectionTest(fileModificationsDictionary, TestName)
 
 
 
