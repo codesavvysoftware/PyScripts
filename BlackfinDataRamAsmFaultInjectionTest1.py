@@ -16,7 +16,7 @@
 #///
 #/////////////////////////////////////////////////////////////////////////////
 
-import blackfinFaultInjectionUtils
+import faultInjectionUtils
 
 #------------------------------------------------------------------------------
 # Here is the list of files to be modified by this script, along with
@@ -37,4 +37,4 @@ fileModificationsDictionary = { \
 
 # Call the procedure to modify and build the test firmware code with the
 # above modifications.
-blackfinFaultInjectionUtils.FaultInjectionUtils().BlackfinModifyAndBuildFaultInjectionFile(fileModificationsDictionary, __file__)
+faultInjectionUtils.FaultInjectionUtils().ModifyAndBuildFaultInjectionFile(fileModificationsDictionary, __file__)

@@ -63,8 +63,13 @@ import os         # For path
 import datetime   # For date
 import shutil     # For Copy
 import msvcrt     # For getch
+import sys
+import importlib
 
-# Define constants that need to be confirmed/modified at run time.
+
+# FaultInjectionUtils class
+# This class is used to process the fault injection script file.
+## Define constants that need to be confirmed/modified at run time.
 # The order of projects in ENZTR_PROJECT_NAME and CNZ_PROJECT_NAME is
 # important. A specific order is used to make sure that the requirements
 # for a later project are built.
@@ -78,6 +83,8 @@ BLACKFIN_PROJECT_FOLDER                          = "1756IRT8I"
 BLACKFIN_BUILD_TYPE_FOLDER                       = "Release"
 
 BLACKFIN_DIAG_PATH                               = "\\Common\\Diag"
+
+BLACKFIN_OS_PATH                                 = "\\Common\\OS"
 
 BLACKFIN_MAKE_CLEAN_CMD                          = "IRT8I_Release_clean"
 
@@ -93,11 +100,14 @@ APEX_PROJECT_FOLDER                              = "Release"
 
 APEX_DIAG_PATH                                   = ""
 
+APEX_OS_PATH                                     = "\\OS"
+
 APEX_MAKE_CLEAN_CMD                              = "clean"
 
 APEX_MAKE_CMD                                    = "all"
 
 APEX_BUILD_SCRIPT                                = "APEX2_Build_Test.bat"
+
 # Define constants that should not change.
 SEARCH_VOB_STR                                            = "\\FIT"
 
@@ -115,11 +125,13 @@ MAX_NUMBER_OF_FILES_AND_FOLDERS_TO_DELETE_BEFORE_BUILDING = 100
 
 MAX_NUMBER_OF_BUILDS_PER_SCRIPT_PER_PRODUCT_PER_DAY       = 50
 
-# FaultInjectionUtils class
-# This class is used to process the fault injection script file.
 class FaultInjectionUtils:
 
-    #-------------------------------------------------------------------------
+    def __init__(self):
+
+        pass
+
+	#-------------------------------------------------------------------------
     # Print a message to both the screen and the specified log file.
     def PrintToScreenAndFile(self, Message, PrintToScreen):
         Message = str(datetime.datetime.now()) + " " + Message + "\n"
@@ -433,25 +445,6 @@ class FaultInjectionUtils:
         # Print a message indicating successful completion.
         self.PrintToScreenAndFile("faultInjectionUtils.FaultInjectionUtils().ModifyAndBuildFaultInjectionFile() completed successfully!", True)
 
-    def BlackfinModifyAndBuildFaultInjectionFile(self, fileModificationsDictionary, TestName):
-
-        # Perform all necessary initialization.
-        self.ProductName = BLACKFIN_PRODUCT_NAME
-
-        self.Init(TestName)
-
-        self.DiagEditPath      = self.ViewPath + "\\" + BLACKFIN_PRODUCT_FOLDER + "\\" + BLACKFIN_DIAG_PATH
-		
-        self.CleanBuildCmd = ".\\" + BLACKFIN_BUILD_SCRIPT + " " + self.BranchPath + " " + BLACKFIN_PROJECT_FOLDER + " " + BLACKFIN_MAKE_CLEAN_CMD
-		
-        self.BuildExecutableCmd = ".\\" + BLACKFIN_BUILD_SCRIPT + " " + self.BranchPath + " " + BLACKFIN_PROJECT_FOLDER + " " + BLACKFIN_MAKE_CMD
-
-        self.ResultsOfBuildFolder = self.ViewPath + "\\" + BLACKFIN_PRODUCT_FOLDER + "\\"  + BLACKFIN_PROJECT_FOLDER + "\\" + BLACKFIN_BUILD_TYPE_FOLDER
-
-        self.MakeFileWithPath = ""
-
-        self.ModifyFileBuildFaultInjectionTest(fileModificationsDictionary, TestName)
-    
     def ModifyAndBuildFaultInjectionFile(self, fileModificationsDictionary, TestName):
         makefileModificationsDictionaryRM = { \
 			'makefile': [ \
@@ -492,45 +485,121 @@ RM :=cmd /C del /F /Q
 			]
         }
 
-        # Perform all necessary initialization.
-        self.ProductName = APEX_PRODUCT_NAME
+        if len(sys.argv) != 0 :
 
-        self.Init(TestName)
+            if sys.argv[1] == "BlackfinDiag" :
 
-        self.DiagEditPath      = self.ViewPath + "\\" + APEX_PRODUCT_FOLDER + "\\" + APEX_DIAG_PATH
+                self.ProductName = BLACKFIN_PRODUCT_NAME
 
-        self.CleanBuildCmd = ".\\" + APEX_BUILD_SCRIPT + " " + self.BranchPath + " " + APEX_MAKE_CLEAN_CMD
+                self.Init(TestName)
+
+                self.DiagEditPath      = self.ViewPath + "\\" + BLACKFIN_PRODUCT_FOLDER + "\\" + BLACKFIN_DIAG_PATH
 		
-        self.BuildExecutableCmd = ".\\" + APEX_BUILD_SCRIPT + " " + self.BranchPath + " " + APEX_MAKE_CMD
+                self.CleanBuildCmd = ".\\" + BLACKFIN_BUILD_SCRIPT + " " + self.BranchPath + " " + BLACKFIN_PROJECT_FOLDER + " " + BLACKFIN_MAKE_CLEAN_CMD
+		
+                self.BuildExecutableCmd = ".\\" + BLACKFIN_BUILD_SCRIPT + " " + self.BranchPath + " " + BLACKFIN_PROJECT_FOLDER + " " + BLACKFIN_MAKE_CMD
 
-        self.ResultsOfBuildFolder = self.ViewPath + "\\" + APEX_PRODUCT_FOLDER + "\\"  + APEX_PROJECT_FOLDER
+                self.ResultsOfBuildFolder = self.ViewPath + "\\" + BLACKFIN_PRODUCT_FOLDER + "\\"  + BLACKFIN_PROJECT_FOLDER + "\\" + BLACKFIN_BUILD_TYPE_FOLDER
 
-        self.MakeFileWithPath = self.ViewPath + "\\" + APEX_PRODUCT_FOLDER + "\\"  + APEX_PROJECT_FOLDER + "\\makefile"
+                self.MakeFileWithPath = ""
+
+            elif sys.argv[1] == "BlackfinOS" :
+
+                self.ProductName = BLACKFIN_PRODUCT_NAME
+
+                self.Init(TestName)
+
+                self.DiagEditPath      = self.ViewPath + "\\" + BLACKFIN_PRODUCT_FOLDER + "\\" + BLACKFIN_OS_PATH
+		
+                self.CleanBuildCmd = ".\\" + BLACKFIN_BUILD_SCRIPT + " " + self.BranchPath + " " + BLACKFIN_PROJECT_FOLDER + " " + BLACKFIN_MAKE_CLEAN_CMD
+		
+                self.BuildExecutableCmd = ".\\" + BLACKFIN_BUILD_SCRIPT + " " + self.BranchPath + " " + BLACKFIN_PROJECT_FOLDER + " " + BLACKFIN_MAKE_CMD
+
+                self.ResultsOfBuildFolder = self.ViewPath + "\\" + BLACKFIN_PRODUCT_FOLDER + "\\"  + BLACKFIN_PROJECT_FOLDER + "\\" + BLACKFIN_BUILD_TYPE_FOLDER
+
+                self.MakeFileWithPath = ""
+
+
+            elif sys.argv[1] == "ApexDiag" :
+
+                self.ProductName = APEX_PRODUCT_NAME 
+
+                self.Init(TestName)
+
+                self.DiagEditPath      = self.ViewPath + "\\" + APEX_PRODUCT_FOLDER + "\\" + APEX_DIAG_PATH
+
+                self.CleanBuildCmd = ".\\" + APEX_BUILD_SCRIPT + " " + self.BranchPath + " " + APEX_MAKE_CLEAN_CMD
+		
+                self.BuildExecutableCmd = ".\\" + APEX_BUILD_SCRIPT + " " + self.BranchPath + " " + APEX_MAKE_CMD
+
+                self.ResultsOfBuildFolder = self.ViewPath + "\\" + APEX_PRODUCT_FOLDER + "\\"  + APEX_PROJECT_FOLDER
+
+                self.MakeFileWithPath = self.ViewPath + "\\" + APEX_PRODUCT_FOLDER + "\\"  + APEX_PROJECT_FOLDER + "\\makefile"
         
-        if clearcase.isCheckedOut(self.MakeFileWithPath):
-            if clearcase.uncheckout(self.MakeFileWithPath, keep = True) != None:
-                UnexpectedError = "Error while trying to uncheckout file %s!" % self.MakeFileWithPath
-                self.PrintToScreenAndFile(UnexpectedError, False)
-                raise RuntimeError, UnexpectedError
-            UnexpectedError = "File %s already Checked Out!" % self.MakeFileWithPath
-            self.PrintToScreenAndFile(UnexpectedError, False)
-            raise RuntimeError, UnexpectedError
-        self.PrintToScreenAndFile("File %s is not already checked out" % self.MakeFileWithPath, True)
+                if clearcase.isCheckedOut(self.MakeFileWithPath):
+                    if clearcase.uncheckout(self.MakeFileWithPath, keep = True) != None:
+                        UnexpectedError = "Error while trying to uncheckout file %s!" % self.MakeFileWithPath
+                        self.PrintToScreenAndFile(UnexpectedError, False)
+                        raise RuntimeError, UnexpectedError
+                    UnexpectedError = "File %s already Checked Out!" % self.MakeFileWithPath
+                    self.PrintToScreenAndFile(UnexpectedError, False)
+                    raise RuntimeError, UnexpectedError
+                self.PrintToScreenAndFile("File %s is not already checked out" % self.MakeFileWithPath, True)
 
-        # Check the file out.
-        self.PrintToScreenAndFile("Checking out file %s" % self.MakeFileWithPath, True)
-        if clearcase.checkout(self.MakeFileWithPath, False, 'Temporary Checkout for Fault Injection Test.') != None:
-            UnexpectedError = "Error while trying to checkout file %s!" % self.MakeFileWithPath
-            self.PrintToScreenAndFile(UnexpectedError, False)
-            raise RuntimeError, UnexpectedError
-        self.PrintToScreenAndFile("File %s has been checked out." % self.MakeFileWithPath, True)
+                # Check the file out.
+                self.PrintToScreenAndFile("Checking out file %s" % self.MakeFileWithPath, True)
+                if clearcase.checkout(self.MakeFileWithPath, False, 'Temporary Checkout for Fault Injection Test.') != None:
+                    UnexpectedError = "Error while trying to checkout file %s!" % self.MakeFileWithPath
+                    self.PrintToScreenAndFile(UnexpectedError, False)
+                    raise RuntimeError, UnexpectedError
+                self.PrintToScreenAndFile("File %s has been checked out." % self.MakeFileWithPath, True)
         
-        # Modify the file.
-        self.ModifyFile(makefileModificationsDictionaryRM, "makefile", self.MakeFileWithPath)
-        self.ModifyFile(makefileModificationsDictionaryDEL, "makefile", self.MakeFileWithPath)
+                # Modify the file.
+                self.ModifyFile(makefileModificationsDictionaryRM, "makefile", self.MakeFileWithPath)
+                self.ModifyFile(makefileModificationsDictionaryDEL, "makefile", self.MakeFileWithPath)
 
+            elif sys.argv[1] == "ApexOS" :
 
+                self.ProductName = APEX_PRODUCT_NAME
+
+                self.Init(TestName)
+
+                self.DiagEditPath      = self.ViewPath + "\\" + APEX_PRODUCT_FOLDER + "\\" + APEX_OS_PATH
+
+                self.CleanBuildCmd = ".\\" + APEX_BUILD_SCRIPT + " " + self.BranchPath + " " + APEX_MAKE_CLEAN_CMD
+		
+                self.BuildExecutableCmd = ".\\" + APEX_BUILD_SCRIPT + " " + self.BranchPath + " " + APEX_MAKE_CMD
+
+                self.ResultsOfBuildFolder = self.ViewPath + "\\" + APEX_PRODUCT_FOLDER + "\\"  + APEX_PROJECT_FOLDER
+
+                self.MakeFileWithPath = self.ViewPath + "\\" + APEX_PRODUCT_FOLDER + "\\"  + APEX_PROJECT_FOLDER + "\\makefile"
+        
+                if clearcase.isCheckedOut(self.MakeFileWithPath):
+                    if clearcase.uncheckout(self.MakeFileWithPath, keep = True) != None:
+                        UnexpectedError = "Error while trying to uncheckout file %s!" % self.MakeFileWithPath
+                        self.PrintToScreenAndFile(UnexpectedError, False)
+                        raise RuntimeError, UnexpectedError
+                    UnexpectedError = "File %s already Checked Out!" % self.MakeFileWithPath
+                    self.PrintToScreenAndFile(UnexpectedError, False)
+                    raise RuntimeError, UnexpectedError
+                self.PrintToScreenAndFile("File %s is not already checked out" % self.MakeFileWithPath, True)
+
+                # Check the file out.
+                self.PrintToScreenAndFile("Checking out file %s" % self.MakeFileWithPath, True)
+                if clearcase.checkout(self.MakeFileWithPath, False, 'Temporary Checkout for Fault Injection Test.') != None:
+                    UnexpectedError = "Error while trying to checkout file %s!" % self.MakeFileWithPath
+                    self.PrintToScreenAndFile(UnexpectedError, False)
+                    raise RuntimeError, UnexpectedError
+                self.PrintToScreenAndFile("File %s has been checked out." % self.MakeFileWithPath, True)
+        
+                # Modify the file.
+                self.ModifyFile(makefileModificationsDictionaryRM, "makefile", self.MakeFileWithPath)
+                self.ModifyFile(makefileModificationsDictionaryDEL, "makefile", self.MakeFileWithPath)
+            else :
+
+                raise RuntimeError, "Invalid command line arg"
         self.ModifyFileBuildFaultInjectionTest(fileModificationsDictionary, TestName)
+    
 
 
 
