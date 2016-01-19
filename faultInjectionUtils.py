@@ -50,9 +50,24 @@
 #///                      necessary .drch file to be generated before the UCS
 #///                      DKM is built since it is missing from the UCS DKM's
 #///                      drc.makefile (see Lgx00152375 for details).
+#/// tnhaley  14-JAN-2016 Modified to accomodate NextGen Apex and Blackfin 
+#///                      edits and builds with the existing legacy class. The
+#///                      legacy faultInjectionUtils.py was implemented unchanged
+#///                      in a separate .py library file:
+#///                          LegacyFaultInjectionUtils.py
+#///                      The NextGen FaultInjectionUtils class was implement in:
+#///                          NextGenFaultInjectionUtils.py
+#///                      The scripts that actually implement the editing of the 
+#///                      source files for fault injection remain unchanged. 
+#///                      Scripts to edit Blackfin files for fault injection were
+#///                      developed.  Also the .bat file that call the scripts
+#///                      for the legacy fault injection remains unchanged.
+#///                      A new .bat file was implemented for NextGen builds.
+#///                      The command line has a parameter that tells the 
+#///                      FaultInjectionClass for NextGen what build to do.
 #/// @endif
 #///
-#/// @par Copyright (c) 2014 Rockwell Automation Technologies, Inc.  All rights reserved.
+#/// @par Copyright (c) 2016 Rockwell Automation Technologies, Inc.  All rights reserved.
 #///
 #/////////////////////////////////////////////////////////////////////////////
 
@@ -70,7 +85,7 @@ class FaultInjectionUtils:
 
         else:
 
-            self.FaultInjectInstance = importlib.import_module('blackfinFaultInjectionUtils').FaultInjectionUtils()
+            self.FaultInjectInstance = importlib.import_module('NextGenFaultInjectionUtils').FaultInjectionUtils()
 
     def ModifyAndBuildFaultInjectionFile(self, fileModificationsDictionary, TestName):
         

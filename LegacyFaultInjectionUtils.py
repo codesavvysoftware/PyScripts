@@ -1,5 +1,5 @@
 #/////////////////////////////////////////////////////////////////////////////
-#/// @file faultInjectionUtils.py
+#/// @file LegacyFaultInjectionUtils.py
 #///
 #/// This script file contains a procedure used to modify firmware files,
 #/// typically for injecting faults. A file modification dictionary is passed
@@ -22,37 +22,10 @@
 #/// 
 #/// @if REVISION_HISTORY_INCLUDED
 #/// @par Edit History
-#/// wmpeloso 07-OCT-2013 Created.
-#/// wmpeloso 13-OCT-2013 Updated per Collaborator code review #26377.
-#/// wmpeloso 16-OCT-2013 Removed unneeded extra indent of all BuildModifiedCode() lines.
-#/// wmpeloso 03-NOV-2013 Added deletion of old build files to better detect build errors.
-#///                      Added ConfigApexDiagnosticsStartupDelay() and MergeDictionaries().
-#/// wmpeloso 07-NOV-2013 Removed unused import of defaultdict.
-#/// pgrzywn  08-NOV-2013 Added deletion of Apex.bin to force generation of ApexBinary.h.
-#/// wmpeloso 03-DEC-2013 Added support for CNz. Incorporated comments from
-#///                      Collaborator code review #28106.
-#/// abritto  18-DEC-2013 Added special parsing for product-specific filepaths.
-#/// wmpeloso 09-JAN-2014 Added undoing of checkouts when this file fails as
-#///                      suggested in Collaborator code review #27491.
-#/// wmpeloso 10-JAN-2014 Removed unused UndoCheckouts() Keys parameter per
-#///                      Collaborator code review #29206.
-#/// wmpeloso 13-JAN-2014 Corrected PrintToScreenAndFile() line in
-#///                      MakeWorkspace() per Collaborator code review #29206.
-#/// wmpeloso 14-JAN-2014 Updated ApexDiagnosticsStartupDelayDictionary to
-#///                      reflect changes made per MISRA fixes per
-#///                      Collaborator code review #29206. Updated copyright
-#///                      year.
-#/// wmpeloso 24-JAN-2014 Fix for .replace() call for parsing product-specific
-#///                      filepaths. Added comment regarding required
-#///                      cleartool.pyd file.
-#/// wmpeloso 21-MAY-2014 Modified CNZ_PROJECT_NAME so "Proj_ICE2_CNet_VB" is
-#///                      built before "Proj_ICE2_CNzR_VIP" to force a
-#///                      necessary .drch file to be generated before the UCS
-#///                      DKM is built since it is missing from the UCS DKM's
-#///                      drc.makefile (see Lgx00152375 for details).
+#/// tnhaley  14-JAN-2013 Created.
 #/// @endif
 #///
-#/// @par Copyright (c) 2014 Rockwell Automation Technologies, Inc.  All rights reserved.
+#/// @par Copyright (c) 2016 Rockwell Automation Technologies, Inc.  All rights reserved.
 #///
 #/////////////////////////////////////////////////////////////////////////////
 
